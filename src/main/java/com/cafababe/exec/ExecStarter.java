@@ -10,16 +10,19 @@ import org.apache.commons.exec.PumpStreamHandler;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
- *
  * <dt>data handler</dt>
- *
+ * <p>
  * <dd>可以不设置DataHandler，默认情况下使用{@link DataHandlerChain.VoidDataHandler}，如果只设置一个DataHandler，
  * 那么不会创建{@link DataHandlerChain}对象。如果设置超过一个DataHandler,会将传入的DataHandler存储在{@link DataHandlerChain}。
  * 存在一种特殊的只处理异常的DataHandler{@link com.cafababe.exec.handler.ExceptionHandler}，只需要实现ExceptonHandler并且
  * 将其注册，ExecStarter将会处理异常。如果未注册ExceptionHandler，异常将会抛弃，不进行任何处理。<dd/>
- *
+ * <p>
  * <dt>timeout</dt>
  * <dd>如果命令执行时间超过timeout，连接将中断</dd>
  *
@@ -28,40 +31,65 @@ import java.io.IOException;
  */
 public class ExecStarter {
 
+    private static volatile ExecutorService executor = new ThreadPoolExecutor(
+            5, 20,
+            30, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(256), new AgainPolicy());
 
-    public static void main(String[] args) throws Exception {
-        new ExecStarter().start("ping 127.0.0.1");
-    }
+    private static Object lock = new Object();
 
-    public ExecuteInfo start(String command, DataHandler... resultHandlers) throws IOException {
+
+    /**
+     * 启动执行命令
+     *
+     * @param command      命令行
+     * @param dataHandlers 连接超时时间
+     * @return
+     * @throws IOException
+     */
+    public static ExecuteInfo start(String command, DataHandler... dataHandlers) throws IOException {
+
+        createExecutor();
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler();
 
         info.getThread().setCommand(command);
 
-        runtime(info, commandLine, resultHandlers);
+        runtime(info, commandLine, dataHandlers);
 
         return info;
     }
 
-    public ExecuteInfo start(String command, long timeout, DataHandler... resultHandlers) throws IOException{
+    /**
+     * 启动执行命令
+     *
+     * @param command      命令行
+     * @param timeout      连接超时时间
+     * @param dataHandlers 数据处理对象
+     * @return
+     * @throws IOException
+     */
+    public static ExecuteInfo start(String command, long timeout, DataHandler... dataHandlers) throws IOException {
+
+        createExecutor();
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler(timeout);
 
         info.getThread().setCommand(command);
 
-        runtime(info, commandLine, resultHandlers);
+        runtime(info, commandLine, dataHandlers);
 
         return info;
     }
 
     /**
      * 执行命令
-     * @param executeInfo exec运行需要的信息
-     * @param commandLine 执行的命令行
-     * @param dataHandlers 数据处理
+     *
+     * @param executeInfo  exec运行需要的信息
+     * @param commandLine  执行的命令行
+     * @param dataHandlers 数据处理对象
      * @throws IOException
      * @see org.apache.commons.exec.Executor#execute(CommandLine, java.util.Map, ExecuteResultHandler)
      */
@@ -80,23 +108,25 @@ public class ExecStarter {
         exec.setWatchdog(executeInfo.getWatchdog());
         exec.execute(commandLine, executeInfo.getResultHandler());
 
-        executeInfo.getThread().start();
+        executor.execute(executeInfo.getThread());
     }
 
     /**
      * 默认的单次连接超时时间为30分钟
+     *
      * @return
      */
-    public static ExecuteInfo getDefaultHandler() {
+    private static ExecuteInfo getDefaultHandler() {
         return getDefaultHandler(1800000);
     }
 
     /**
      * 可设置timeout
+     *
      * @param timeout 超时时间
      * @return
      */
-    public static ExecuteInfo getDefaultHandler(long timeout) {
+    private static ExecuteInfo getDefaultHandler(long timeout) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PumpStreamHandler streamHandler = new PumpStreamHandler(outputStream);
         // 创建读取线程
@@ -107,4 +137,27 @@ public class ExecStarter {
         return new ExecuteInfo(readerThread, streamHandler, watchdog);
     }
 
+    /**
+     * 创建线程池
+     */
+    private static void createExecutor() {
+        if (executor == null) {
+            synchronized (lock) {
+                if (executor == null) {
+                    executor = new ThreadPoolExecutor(
+                            5, 20,
+                            30, TimeUnit.MILLISECONDS,
+                            new LinkedBlockingQueue<>(256), new AgainPolicy());
+                }
+            }
+        }
+    }
+
+    /**
+     * 关闭ExecStarter
+     */
+    public static void shutdown() {
+        executor.shutdown();
+        executor = null;
+    }
 }

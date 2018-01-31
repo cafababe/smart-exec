@@ -17,7 +17,7 @@ import java.io.InputStreamReader;
  * @author cafababe
  * @since 1.0
  */
-public class ReaderThread extends Thread {
+public class ReaderThread implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(ReaderThread.class);
 
@@ -77,12 +77,20 @@ public class ReaderThread extends Thread {
     }
 
     /**
-     * 处理异常
+     * 异常处理
      */
-    private void execException() {
+    protected void execException() {
+        execException(null);
+    }
+
+    /**
+     * 异常处理
+     * @param e 将要处理的异常
+     */
+    protected void execException(Exception e) {
         if (resultHandler.hasResult() && resultHandler.getException() != null) {
             if (dataHandler instanceof ExceptionHandler) {
-                ((ExceptionHandler)dataHandler).executeResult(resultHandler.getException());
+                ((ExceptionHandler)dataHandler).executeResult(e != null ? e : resultHandler.getException());
             }
         }
     }
