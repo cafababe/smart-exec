@@ -31,13 +31,15 @@ import java.util.concurrent.TimeUnit;
  */
 public class ExecStarter {
 
-    private static volatile ExecutorService executor = new ThreadPoolExecutor(
+    private static volatile ThreadPoolExecutor readPool = new ThreadPoolExecutor(
             5, 20,
             30, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(256), new AgainPolicy());
 
-    private static Object lock = new Object();
-
+    private static volatile ThreadPoolExecutor workPool = new ThreadPoolExecutor(
+            5, 20,
+            30, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(256), new AgainPolicy());
 
     /**
      * 启动执行命令
@@ -48,8 +50,6 @@ public class ExecStarter {
      * @throws IOException
      */
     public static ExecuteInfo start(String command, DataHandler... dataHandlers) throws IOException {
-
-        createExecutor();
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler();
@@ -71,8 +71,6 @@ public class ExecStarter {
      * @throws IOException
      */
     public static ExecuteInfo start(String command, long timeout, DataHandler... dataHandlers) throws IOException {
-
-        createExecutor();
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler(timeout);
@@ -106,9 +104,10 @@ public class ExecStarter {
 
         exec.setStreamHandler(executeInfo.getHandler());
         exec.setWatchdog(executeInfo.getWatchdog());
-        exec.execute(commandLine, executeInfo.getResultHandler());
 
-        executor.execute(executeInfo.getThread());
+        workPool.execute(new ExecuteThread(exec, commandLine, executeInfo.getResultHandler()));
+
+        readPool.execute(executeInfo.getThread());
     }
 
     /**
@@ -138,26 +137,15 @@ public class ExecStarter {
     }
 
     /**
-     * 创建线程池
-     */
-    private static void createExecutor() {
-        if (executor == null) {
-            synchronized (lock) {
-                if (executor == null) {
-                    executor = new ThreadPoolExecutor(
-                            5, 20,
-                            30, TimeUnit.MILLISECONDS,
-                            new LinkedBlockingQueue<>(256), new AgainPolicy());
-                }
-            }
-        }
-    }
-
-    /**
      * 关闭ExecStarter
      */
     public static void shutdown() {
-        executor.shutdown();
-        executor = null;
+        if (readPool != null) {
+            readPool.shutdown();
+        }
+
+        if (workPool != null) {
+            workPool.shutdown();
+        }
     }
 }

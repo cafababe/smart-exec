@@ -25,6 +25,12 @@ class AgainPolicy implements RejectedExecutionHandler {
             if (executor.isShutdown()) {
                 ((ReaderThread)r).execException(new RejectedExecutionException("ExecStarter已经关闭，无法执行命令"));
             } else {
+                // 将导致StackOverFlowError错误
+                // 等待队列可用
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) { }
+
                 executor.execute(r);
             }
         }
