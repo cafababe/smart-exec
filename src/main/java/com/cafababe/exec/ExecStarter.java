@@ -2,6 +2,7 @@ package com.cafababe.exec;
 
 import com.cafababe.exec.handler.DataHandler;
 import com.cafababe.exec.handler.DataHandlerChain;
+import com.cafababe.exec.handler.ExceptionHandler;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteResultHandler;
@@ -12,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -20,23 +22,28 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * <dd>可以不设置DataHandler，默认情况下使用{@link DataHandlerChain.VoidDataHandler}，如果只设置一个DataHandler，
  * 那么不会创建{@link DataHandlerChain}对象。如果设置超过一个DataHandler,会将传入的DataHandler存储在{@link DataHandlerChain}。
- * 存在一种特殊的只处理异常的DataHandler{@link com.cafababe.exec.handler.ExceptionHandler}，只需要实现ExceptonHandler并且
+ * 存在一种特殊的只处理异常的DataHandler{@link ExceptionHandler}，只需要实现ExceptonHandler并且
  * 将其注册，ExecStarter将会处理异常。如果未注册ExceptionHandler，异常将会抛弃，不进行任何处理。<dd/>
  * <p>
  * <dt>timeout</dt>
  * <dd>如果命令执行时间超过timeout，连接将中断</dd>
+ *
+ * <dt>shutdown ExecStarter<dt/>
+ * <dd>如果需要关闭ExecStarter，直接调用{@code shutdown}。在多线程中调用，可能导致ExecStarter已经关闭，但是commamd未执行，未执行的
+ * command将抛出{@link RejectedExecutionException}异常，但是可以通过实现@{link {@link ExceptionHandler}}接口进行自定义的处理<dd/>
+ *
  *
  * @author cafababe
  * @since 1.0
  */
 public class ExecStarter {
 
-    private static volatile ThreadPoolExecutor readPool = new ThreadPoolExecutor(
+    private static volatile ExecutorService readPool = new ThreadPoolExecutor(
             5, 20,
             30, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(256), new AgainPolicy());
 
-    private static volatile ThreadPoolExecutor workPool = new ThreadPoolExecutor(
+    private static volatile ExecutorService workPool = new ThreadPoolExecutor(
             5, 20,
             30, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(256), new AgainPolicy());

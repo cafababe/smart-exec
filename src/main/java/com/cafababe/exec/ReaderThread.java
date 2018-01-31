@@ -68,12 +68,10 @@ public class ReaderThread implements Runnable {
                 logger.error("正式执行命令:{}有IO异常", command);
             }
         }
+        // 等待数据
         try {
             Thread.sleep(100);
-        } catch (InterruptedException ignore) {
-            // nothing
-            logger.warn("程序暂停失败");
-        }
+        } catch (InterruptedException ignore) {}
     }
 
     /**
@@ -84,11 +82,17 @@ public class ReaderThread implements Runnable {
     }
 
     /**
+     *  step 1:判断是否有异常
+     *  step 2:是否是ExceptionHandler,只有是ExceptionHandler才处理异常
+     *  step 3:交给ExceptionHandler处理异常
+     *
      * 异常处理
      * @param e 将要处理的异常
      */
     protected void execException(Exception e) {
-        if (resultHandler.hasResult() && resultHandler.getException() != null) {
+
+        // 判断是否异常
+        if (resultHandler.hasResult() && resultHandler.getException() != null || e != null) {
             if (dataHandler instanceof ExceptionHandler) {
                 ((ExceptionHandler)dataHandler).executeResult(e != null ? e : resultHandler.getException());
             }
