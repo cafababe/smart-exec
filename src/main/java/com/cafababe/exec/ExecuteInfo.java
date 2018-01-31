@@ -53,7 +53,7 @@ public class ExecuteInfo {
     }
 
     /**
-     * 释放资源
+     * 手动释放资源，比如执行ping 127.0.0.1 -t 无法中断命令，需要手动中断
      */
     public void release() {
         if (!resultHandler.hasResult() && !watchdog.killedProcess()) {
