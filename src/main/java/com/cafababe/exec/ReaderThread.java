@@ -9,11 +9,13 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 
 
 /**
  * @author cafababe
+ * @since 1.0
  */
 public class ReaderThread extends Thread {
 
@@ -62,13 +64,13 @@ public class ReaderThread extends Thread {
                         dataHandler.executeResult(line);
                     }
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 logger.error("正式执行命令:{}有IO异常", command);
             }
         }
         try {
             Thread.sleep(100);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ignore) {
             // nothing
             logger.warn("程序暂停失败");
         }
@@ -125,21 +127,4 @@ public class ReaderThread extends Thread {
         this.dataHandler = dataHandler;
     }
 
-
-    /**
-     * @author cafababe
-     * @since 1.0
-     */
-    public abstract static class AbstractExceptionHandler implements ExceptionHandler {
-
-        private String uid;
-
-        public String getUid() {
-            return uid;
-        }
-
-        public void setUid(String uid) {
-            this.uid = uid;
-        }
-    }
 }

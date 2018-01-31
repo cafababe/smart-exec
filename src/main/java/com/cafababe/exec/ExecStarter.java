@@ -12,6 +12,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
+ *
+ * <dt>data handler</dt>
+ *
+ * <dd>可以不设置DataHandler，默认情况下使用{@link DataHandlerChain.VoidDataHandler}，如果只设置一个DataHandler，
+ * 那么不会创建{@link DataHandlerChain}对象。如果设置超过一个DataHandler,会将传入的DataHandler存储在{@link DataHandlerChain}。
+ * 存在一种特殊的只处理异常的DataHandler{@link com.cafababe.exec.handler.ExceptionHandler}，只需要实现ExceptonHandler并且
+ * 将其注册，ExecStarter将会处理异常。如果未注册ExceptionHandler，异常将会抛弃，不进行任何处理。<dd/>
+ *
+ * <dt>timeout</dt>
+ * <dd>如果命令执行时间超过timeout，连接将中断</dd>
+ *
  * @author cafababe
  * @since 1.0
  */
@@ -52,7 +63,6 @@ public class ExecStarter {
      * @param commandLine 执行的命令行
      * @param dataHandlers 数据处理
      * @throws IOException
-     * @throws InterruptedException
      * @see org.apache.commons.exec.Executor#execute(CommandLine, java.util.Map, ExecuteResultHandler)
      */
     private static void runtime(ExecuteInfo executeInfo, CommandLine commandLine, DataHandler... dataHandlers) throws IOException {
@@ -83,13 +93,13 @@ public class ExecStarter {
 
     /**
      * 可设置timeout
-     * @param timeout 单次超时时间
+     * @param timeout 超时时间
      * @return
      */
     public static ExecuteInfo getDefaultHandler(long timeout) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PumpStreamHandler streamHandler = new PumpStreamHandler(outputStream);
-        // 读线程去读取数据
+        // 创建读取线程
         ReaderThread readerThread = new ReaderThread(outputStream);
         // 超过30分钟，连接自动断开
         ExecuteWatchdog watchdog = new ExecuteWatchdog(timeout);
