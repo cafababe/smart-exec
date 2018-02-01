@@ -4,7 +4,6 @@ import com.cafababe.exec.handler.DataHandler;
 import com.cafababe.exec.handler.DataHandlerChain;
 import com.cafababe.exec.handler.ExceptionHandler;
 import org.apache.commons.exec.CommandLine;
-import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteResultHandler;
 import org.apache.commons.exec.ExecuteWatchdog;
 import org.apache.commons.exec.PumpStreamHandler;
@@ -38,12 +37,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class ExecStarter {
 
-    private static volatile ExecutorService readPool = new ThreadPoolExecutor(
+    private static ExecutorService readPool = new ThreadPoolExecutor(
             5, 20,
             30, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(256), new AgainPolicy());
 
-    private static volatile ExecutorService workPool = new ThreadPoolExecutor(
+    private static ExecutorService workPool = new ThreadPoolExecutor(
             5, 20,
             30, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(256), new AgainPolicy());
@@ -56,7 +55,7 @@ public class ExecStarter {
      * @return
      * @throws IOException
      */
-    public static ExecuteInfo start(String command, DataHandler... dataHandlers) throws IOException {
+    public ExecuteInfo start(String command, DataHandler... dataHandlers) throws IOException {
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler();
@@ -77,7 +76,7 @@ public class ExecStarter {
      * @return
      * @throws IOException
      */
-    public static ExecuteInfo start(String command, long timeout, DataHandler... dataHandlers) throws IOException {
+    public ExecuteInfo start(String command, long timeout, DataHandler... dataHandlers) throws IOException {
 
         CommandLine commandLine = CommandLine.parse(command);
         ExecuteInfo info = getDefaultHandler(timeout);
@@ -98,9 +97,7 @@ public class ExecStarter {
      * @throws IOException
      * @see org.apache.commons.exec.Executor#execute(CommandLine, java.util.Map, ExecuteResultHandler)
      */
-    private static void runtime(ExecuteInfo executeInfo, CommandLine commandLine, DataHandler... dataHandlers) throws IOException {
-
-        DefaultExecutor exec = new DefaultExecutor();
+    private void runtime(ExecuteInfo executeInfo, CommandLine commandLine, DataHandler... dataHandlers) throws IOException {
 
         executeInfo.getThread().setResultHandler(executeInfo.getResultHandler());
         // 多个handler使用chain，没有dataHandler的使用默认的dataHandler
@@ -109,10 +106,7 @@ public class ExecStarter {
 
         executeInfo.getThread().setDataHandler(dataHandler);
 
-        exec.setStreamHandler(executeInfo.getHandler());
-        exec.setWatchdog(executeInfo.getWatchdog());
-
-        workPool.execute(new ExecuteThread(exec, commandLine, executeInfo.getResultHandler()));
+        workPool.execute(new ExecuteThread(commandLine, executeInfo.getResultHandler(), executeInfo));
 
         readPool.execute(executeInfo.getThread());
     }
@@ -122,7 +116,7 @@ public class ExecStarter {
      *
      * @return
      */
-    private static ExecuteInfo getDefaultHandler() {
+    private ExecuteInfo getDefaultHandler() {
         return getDefaultHandler(1800000);
     }
 
@@ -132,7 +126,7 @@ public class ExecStarter {
      * @param timeout 超时时间
      * @return
      */
-    private static ExecuteInfo getDefaultHandler(long timeout) {
+    private ExecuteInfo getDefaultHandler(long timeout) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PumpStreamHandler streamHandler = new PumpStreamHandler(outputStream);
         // 创建读取线程
@@ -146,7 +140,7 @@ public class ExecStarter {
     /**
      * 关闭ExecStarter
      */
-    public static void shutdown() {
+    public void shutdown() {
         if (readPool != null) {
             readPool.shutdown();
         }

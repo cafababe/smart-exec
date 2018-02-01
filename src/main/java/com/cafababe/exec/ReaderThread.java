@@ -48,6 +48,7 @@ public class ReaderThread implements Runnable {
         // 最后调用，防止resultHandler.hasResult返回结果为true，但是output中还有数据，防止数据不一致
         getResult();
         execException();
+
     }
 
     private void getResult() {
