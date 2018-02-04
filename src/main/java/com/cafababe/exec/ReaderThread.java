@@ -27,9 +27,13 @@ public class ReaderThread implements Runnable {
 
     private boolean shutdown = false;
 
+    private boolean remote = false;
+
     private DefaultExecuteResultHandler resultHandler;
 
     private DataHandler dataHandler;
+
+    private BufferedReader reader;
 
     public ReaderThread(ByteArrayOutputStream os) {
         this.os = os;
@@ -42,7 +46,7 @@ public class ReaderThread implements Runnable {
 
     @Override
     public void run() {
-        while (!shutdown && !resultHandler.hasResult()) {
+        while (!shutdown && (!resultHandler.hasResult() || remote)) {
             getResult();
         }
         // 最后调用，防止resultHandler.hasResult返回结果为true，但是output中还有数据，防止数据不一致
@@ -52,19 +56,17 @@ public class ReaderThread implements Runnable {
     }
 
     private void getResult() {
-        if (os != null && os.size() > 0) {
+        if (os != null && os.size() > 0 || remote) {
             try {
+                if (remote) {
+                    read(reader);
+                    return;
+                }
                 ByteArrayInputStream is = new ByteArrayInputStream(os.toByteArray());
                 os.reset();
                 InputStreamReader isr = new InputStreamReader(is, "gbk");
                 BufferedReader br = new BufferedReader(isr);
-                String line;
-                while (null != (line = br.readLine())) {
-                    if (line.trim().length() != 0) {
-                        // 处理数据
-                        dataHandler.executeResult(line);
-                    }
-                }
+                read(br);
             } catch (IOException e) {
                 logger.error("正式执行命令:{}有IO异常", command);
             }
@@ -73,6 +75,17 @@ public class ReaderThread implements Runnable {
         try {
             Thread.sleep(100);
         } catch (InterruptedException ignore) {}
+    }
+
+
+    private void read(BufferedReader br) throws IOException {
+        String line;
+        while (null != (line = br.readLine())) {
+            if (line.trim().length() != 0) {
+                // 处理数据
+                dataHandler.executeResult(line);
+            }
+        }
     }
 
     /**
@@ -140,4 +153,20 @@ public class ReaderThread implements Runnable {
         this.dataHandler = dataHandler;
     }
 
+
+    public boolean isRemote() {
+        return remote;
+    }
+
+    public void setRemote(boolean remote) {
+        this.remote = remote;
+    }
+
+    public BufferedReader getReader() {
+        return reader;
+    }
+
+    public void setReader(BufferedReader reader) {
+        this.reader = reader;
+    }
 }
