@@ -25,7 +25,7 @@ public class ReaderThread implements Runnable {
 
     private ByteArrayOutputStream os;
 
-    private boolean shutdown = false;
+    private volatile boolean shutdown = false;
 
     private DefaultExecuteResultHandler resultHandler;
 
@@ -69,10 +69,7 @@ public class ReaderThread implements Runnable {
                 logger.error("正式执行命令:{}有IO异常", command);
             }
         }
-        // 等待数据
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException ignore) {}
+        wait(100);
     }
 
     /**
@@ -140,4 +137,12 @@ public class ReaderThread implements Runnable {
         this.dataHandler = dataHandler;
     }
 
+    private void wait(int time) {
+        // 等待数据
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException ignore) {
+            Thread.currentThread().interrupt();
+        }
+    }
 }

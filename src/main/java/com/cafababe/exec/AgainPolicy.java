@@ -28,7 +28,9 @@ class AgainPolicy implements RejectedExecutionHandler {
                 // 等待队列可用，如果runnable一直无法加入队列，将导致StackOverFlowError错误 例如：执行ping 127.0.0.1 -t
                 try {
                     Thread.sleep(100);
-                } catch (InterruptedException e) { }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
 
                 executor.execute(r);
             }
